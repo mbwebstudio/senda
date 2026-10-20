@@ -41,7 +41,9 @@ button{font:inherit;cursor:pointer}
 
 /* Bottom sheet */
 .sheet{position:fixed;z-index:400;left:0;right:0;bottom:0;height:var(--sheet-h,38vh);max-height:calc(100vh - 70px);background:var(--paper);border-radius:22px 22px 0 0;box-shadow:0 -10px 30px -12px rgba(0,0,0,.35);display:flex;flex-direction:column;transition:height .25s;padding-bottom:calc(var(--safe-bottom) + var(--anuncio-h,0px))}
-.sheet-handle{border:0;background:none;padding:10px 0 4px;display:grid;place-items:center}
+.sheet-handle{border:0;background:none;padding:12px 0 8px;width:100%;display:grid;place-items:center;touch-action:none;cursor:grab}
+.sheet.arrastrando{transition:none}
+body:has(.sheet.arrastrando) .fab{transition:none}
 .sheet-handle span{width:44px;height:5px;border-radius:9px;background:var(--line)}
 .sheet-body{overflow-y:auto;padding:4px 18px 24px;flex:1}
 @media(min-width:900px){

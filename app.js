@@ -630,11 +630,58 @@ $('#btn-ubicacion').onclick = async () => {
   try { const p = await Nativo.posicion(); moverYo(p, { centrar: false }); map.flyTo(p, 15); }
   catch { toast('No pudimos acceder a tu ubicación.'); }
 };
+// Bottom sheet: drag it with the finger (from the handle, or from the content when it is
+// scrolled to the top) and it snaps to the nearest height; a tap on the handle cycles.
+const PASOS_SHEET = ['18vh', '38vh', '52vh', '85vh'];
+const vhApx = (v) => (parseFloat(v) * window.innerHeight) / 100;
 $('#sheet-handle').onclick = () => {
   const actual = getComputedStyle(document.documentElement).getPropertyValue('--sheet-h').trim() || '38vh';
-  const pasos = ['18vh', '38vh', '52vh', '85vh'];
-  setSheet(pasos[(pasos.indexOf(actual) + 1) % pasos.length]);
+  setSheet(PASOS_SHEET[(PASOS_SHEET.indexOf(actual) + 1) % PASOS_SHEET.length]);
 };
+(() => {
+  const sheet = $('#sheet'), cuerpo = $('#sheet-body');
+  let ini = null; // { y, h, desdeCuerpo, arrastrando }
+  const empezar = (y, desdeCuerpo) => { ini = { y, h: sheet.getBoundingClientRect().height, desdeCuerpo, arrastrando: !desdeCuerpo }; };
+  const mover = (y, e) => {
+    if (!ini) return;
+    const dy = y - ini.y;
+    if (!ini.arrastrando) {
+      if (Math.abs(dy) < 8) return;
+      // From the content: pull down only when already at the top, push up only if it can still grow.
+      const puede = dy > 0 ? cuerpo.scrollTop <= 0 : ini.h < vhApx('85vh') - 4;
+      if (!puede) { ini = null; return; }
+      ini.arrastrando = true; ini.y = y;
+      return;
+    }
+    if (e.cancelable) e.preventDefault();
+    sheet.classList.add('arrastrando');
+    const h = Math.min(vhApx('85vh'), Math.max(vhApx('12vh'), ini.h - (y - ini.y)));
+    document.documentElement.style.setProperty('--sheet-h', `${h}px`);
+  };
+  const soltar = () => {
+    if (!ini) return;
+    const fue = ini.arrastrando && sheet.classList.contains('arrastrando');
+    sheet.classList.remove('arrastrando');
+    if (fue) {
+      const h = sheet.getBoundingClientRect().height;
+      setSheet(PASOS_SHEET.reduce((a, b) => (Math.abs(vhApx(b) - h) < Math.abs(vhApx(a) - h) ? b : a)));
+      $('#sheet-handle').dataset.arrastro = '1'; // swallow the click that follows the drag
+      setTimeout(() => delete $('#sheet-handle').dataset.arrastro, 50);
+    }
+    ini = null;
+  };
+  const tocar = (desdeCuerpo) => (e) => empezar(e.touches[0].clientY, desdeCuerpo);
+  $('#sheet-handle').addEventListener('touchstart', tocar(false), { passive: true });
+  cuerpo.addEventListener('touchstart', tocar(true), { passive: true });
+  sheet.addEventListener('touchmove', (e) => mover(e.touches[0].clientY, e), { passive: false });
+  sheet.addEventListener('touchend', soltar);
+  sheet.addEventListener('touchcancel', soltar);
+  // Mouse (computer): drag from the handle only.
+  $('#sheet-handle').addEventListener('mousedown', (e) => { empezar(e.clientY, false); e.preventDefault(); });
+  window.addEventListener('mousemove', (e) => mover(e.clientY, e));
+  window.addEventListener('mouseup', soltar);
+  $('#sheet-handle').addEventListener('click', (e) => { if ($('#sheet-handle').dataset.arrastro) e.stopImmediatePropagation(); }, true);
+})();
 
 Reportes.alCambiar(() => {
   dibujarReportes();
