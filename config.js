@@ -6,8 +6,8 @@ window.SENDA_CONFIG = {
 
   // Supabase (Project Settings → API). La "anon key" es pública por diseño: la seguridad
   // la dan las reglas (RLS) de supabase/schema.sql.
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://djiuijkqeovtqjyddfjr.supabase.co',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqaXVpamtxZW92dHFqeWRkZmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1Mjc2OTksImV4cCI6MjEwODEwMzY5OX0.qiRuRmwimJi2zCzj_rnnwQgbb76lxZn5OLvRpLnVD80',
 
   // MapTiler (cloud.maptiler.com → Account → Keys). Con clave, los mapas se pueden
   // descargar para usar sin señal. Sin clave se usan los servidores gratuitos de
