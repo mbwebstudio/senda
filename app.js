@@ -218,8 +218,12 @@ async function cargarDescargados() {
   descargados = new Set(claves.filter((k) => String(k).startsWith('descarga:')).map((k) => k.slice(9)));
 }
 
+// Banner only on the list and trail screens: never while walking, placing a report or under a dialog.
+const anuncioVisible = () => !state.navegando && !state.colocando && $('#modal').hidden;
+
 function render() {
   const body = $('#sheet-body');
+  Anuncios.poner(anuncioVisible());
   if (!state.seleccionado) {
     const filtros = ['Todos', 'Maldonado', 'Lavalleja', 'Fácil', 'Media', 'Difícil'];
     body.innerHTML = `
@@ -400,6 +404,7 @@ async function empezar(simular) {
     await Seguridad.iniciar(r, o);
   }
   state.navegando = true;
+  Anuncios.poner(false);
   state.avisados.clear();
   state.fuera = false;
   setSheet('34vh');
@@ -438,8 +443,8 @@ async function terminar(llegue) {
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
-function abrirModal(html) { $('#modal-content').innerHTML = html; $('#modal').hidden = false; const f = $('#modal-content').querySelector('input,textarea,button'); if (f) f.focus({ preventScroll: true }); }
-function cerrarModal() { $('#modal').hidden = true; }
+function abrirModal(html) { Anuncios.poner(false); $('#modal-content').innerHTML = html; $('#modal').hidden = false; const f = $('#modal-content').querySelector('input,textarea,button'); if (f) f.focus({ preventScroll: true }); }
+function cerrarModal() { $('#modal').hidden = true; Anuncios.poner(anuncioVisible()); }
 $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal' && !$('#modal').dataset.fijo) cerrarModal(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#modal').dataset.fijo) { cerrarModal(); cancelarColocacion(); } });
 
@@ -478,6 +483,7 @@ function abrirReporte() {
 
 function colocarEnMapa(tipo, comentario) {
   state.colocando = { tipo, comentario };
+  Anuncios.poner(false);
   $('#crosshair').hidden = false;
   const body = $('#sheet-body');
   body.innerHTML = `<h2>Mové el mapa</h2><p class="lead">Poné la cruz naranja donde está ${TIPO[tipo].em} ${TIPO[tipo].label.toLowerCase()}.</p>
@@ -583,7 +589,7 @@ function verAcerca() {
 
 // ─── First run: welcome + terms ───────────────────────────────────────────────
 async function bienvenida() {
-  if (await DB.get('kv', 'acepto:v1').catch(() => false)) return;
+  if (await DB.get('kv', 'acepto:v1').catch(() => false)) { Anuncios.iniciar(); return; }
   $('#modal').dataset.fijo = '1';
   abrirModal(`<h2 id="modal-title">Bienvenido a Senda</h2>
     <p class="lead">Senderos de Lavalleja y Maldonado, con avisos de otros caminantes.</p>
@@ -595,7 +601,7 @@ async function bienvenida() {
     <label class="check"><input type="checkbox" id="bv-ok"> <span>Entiendo que el trekking implica riesgos, que lo hago bajo mi responsabilidad y que la información de Senda es orientativa y puede no estar al día. Acepto los <a href="legal/terminos.html" target="_blank">términos</a> y la <a href="legal/privacidad.html" target="_blank">política de privacidad</a>.</span></label>
     <div class="modal-actions"><button class="btn btn-main" id="bv-entrar" disabled style="opacity:.5">Empezar</button></div>`);
   $('#bv-ok').onchange = (e) => { $('#bv-entrar').disabled = !e.target.checked; $('#bv-entrar').style.opacity = e.target.checked ? 1 : 0.5; };
-  $('#bv-entrar').onclick = async () => { await DB.set('kv', 'acepto:v1', Date.now()); delete $('#modal').dataset.fijo; cerrarModal(); };
+  $('#bv-entrar').onclick = async () => { await DB.set('kv', 'acepto:v1', Date.now()); delete $('#modal').dataset.fijo; cerrarModal(); Anuncios.iniciar(); };
 }
 
 // ─── Connection / pending indicator ───────────────────────────────────────────

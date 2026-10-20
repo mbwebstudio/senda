@@ -36,7 +36,9 @@ const Comunidad = (() => {
         <p class="lead">Ahora usás Senda sin cuenta. Creá una para guardar tus puntos y subir fotos, comentarios o recorridos.</p>
         <div class="actions"><button class="btn btn-ghost" id="cta-google">Continuar con Google</button>${Nativo.plataforma === 'ios' ? '<button class="btn btn-ghost" id="cta-apple">Continuar con Apple</button>' : ''}</div>
         <label class="field"><span>O con tu correo</span><input id="cta-mail" type="email" placeholder="tu@correo.com" autocomplete="email"></label>`}
-      <div class="modal-actions">${real ? '<button class="btn btn-ghost" id="cta-salir">Cerrar sesión</button>' : '<button class="btn btn-ghost" id="cta-mail-ok">Mandarme el link</button>'}<button class="btn btn-main" id="cta-ok">Guardar</button></div>`);
+      <div class="modal-actions">${real ? '<button class="btn btn-ghost" id="cta-salir">Cerrar sesión</button>' : '<button class="btn btn-ghost" id="cta-mail-ok">Mandarme el link</button>'}<button class="btn btn-main" id="cta-ok">Guardar</button></div>
+      ${u ? '<p class="fine"><button class="link-peligro" id="cta-borrar">Borrar mi cuenta y mis datos</button></p>' : ''}`);
+    if ($('#cta-borrar')) $('#cta-borrar').onclick = () => confirmarBorrado(u);
     $('#cta-ok').onclick = async () => {
       const nombre = $('#cta-nombre').value.trim();
       await DB.set('kv', 'perfil', { nombre });
@@ -55,6 +57,35 @@ const Comunidad = (() => {
       toast(error ? 'No se pudo: ' + error.message : 'Te mandamos un link para confirmar');
     };
     if ($('#cta-salir')) $('#cta-salir').onclick = async () => { await Nube.sb.auth.signOut(); cerrarModal(); toast('Sesión cerrada'); };
+  }
+
+  /* Deletes the account and everything it published, plus the personal data kept on this
+     phone (contact, recorded walks). Apple requires this to be possible inside the app.
+     Downloaded maps stay: they are not personal. */
+  function confirmarBorrado(u) {
+    abrirModal(`<h2 id="modal-title">Borrar tu cuenta</h2>
+      <p class="lead">Se borran para siempre tus avisos, fotos, comentarios, recorridos propuestos, puntos y medallas, y en este teléfono tu contacto de emergencia y tus caminatas grabadas. No se puede deshacer.</p>
+      <div class="modal-actions"><button class="btn btn-ghost" id="bc-no">Cancelar</button><button class="btn btn-stop" id="bc-si">Borrar todo</button></div>`);
+    $('#bc-no').onclick = cerrarModal;
+    $('#bc-si').onclick = async () => {
+      if (!navigator.onLine) return toast('Necesitás conexión para borrar la cuenta');
+      $('#bc-si').disabled = true; $('#bc-si').textContent = 'Borrando…';
+      try {
+        const { data: fotos } = await Nube.sb.from('fotos').select('ruta').eq('autor', u.id);
+        if (fotos && fotos.length) await Nube.sb.storage.from('fotos').remove(fotos.map((f) => f.ruta));
+        const { error } = await Nube.sb.rpc('borrar_mi_cuenta');
+        if (error) throw error;
+        await Nube.sb.auth.signOut({ scope: 'local' }).catch(() => {});
+        for (const k of await DB.keys('kv').catch(() => [])) {
+          if (k !== 'acepto:v1' && !String(k).startsWith('descarga:')) await DB.del('kv', k);
+        }
+        for (const s of ['outbox', 'tracks']) for (const k of await DB.keys(s).catch(() => [])) await DB.del(s, k);
+        cerrarModal(); toast('Listo: borramos tu cuenta y tus datos');
+      } catch (e) {
+        $('#bc-si').disabled = false; $('#bc-si').textContent = 'Borrar todo';
+        toast('No se pudo borrar: ' + (e.message || e));
+      }
+    };
   }
 
   // ─── Photos and comments on a trail ───────────────────────────────────────────

@@ -1,11 +1,11 @@
 /* Service worker for the web version: keeps the app itself (HTML, code, data, fonts)
    so it opens without signal. Map tiles are handled by js/mapas.js through IndexedDB.
    Bump VERSION whenever app files change. */
-const VERSION = 'senda-0.2.0';
+const VERSION = 'senda-0.3.0';
 const ARCHIVOS = [
   './', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'data/recorridos.js', 'data/destacados.js',
-  'js/db.js', 'js/nativo.js', 'js/nube.js', 'js/mapas.js', 'js/clima.js', 'js/seguridad.js', 'js/comunidad.js',
+  'js/db.js', 'js/nativo.js', 'js/nube.js', 'js/mapas.js', 'js/clima.js', 'js/seguridad.js', 'js/comunidad.js', 'js/anuncios.js',
   'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'vendor/supabase.js', 'vendor/fonts/fonts.css',
   'icons/icon-192.png', 'icons/icon-512.png',
   'fotos/canadon-palma/puerta.jpg', 'fotos/canadon-palma/cruz.jpg', 'fotos/canadon-palma/canadon.jpg',
