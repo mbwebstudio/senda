@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Seguir recorrido · Senda</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  body{margin:0;font-family:Manrope,system-ui,sans-serif;color:#1C2A22;background:#F4EFE4}
+  #map{position:fixed;inset:0}
+  .card{position:fixed;z-index:500;left:12px;right:12px;bottom:12px;max-width:480px;margin:0 auto;background:#FFFDF8;border-radius:18px;padding:16px 18px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4)}
+  h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:1.3rem;margin:0 0 4px}
+  p{margin:4px 0;color:#5E6B62}
+  .ok{color:#1E6B34;font-weight:700}.mal{color:#A61E1E;font-weight:700}
+  a{color:#1F4D3A;font-weight:700}
+  .yo{width:20px;height:20px;border-radius:50%;background:#1C7ED6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(28,126,214,.25)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="card" id="card"><h1>Cargando…</h1></div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+  // Shows where someone is while they walk, from the link they shared. Read-only:
+  // only name, trail, last position and expected time (never the emergency contact).
+  const cfg = window.SENDA_CONFIG;
+  const id = new URLSearchParams(location.search).get('id');
+  const card = document.getElementById('card');
+  const map = L.map('map', { zoomControl: false }).setView([-34.6, -55.1], 9);
+  L.tileLayer('https://tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenStreetMap, SRTM · © OpenTopoMap (CC-BY-SA)' }).addTo(map);
+  let marca = null, centrado = false;
+  const hora = (t) => new Date(t).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+  async function actualizar(sb) {
+    const { data, error } = await sb.rpc('ver_seguimiento', { codigo: id });
+    const s = data && data[0];
+    if (error || !s) { card.innerHTML = '<h1>Link vencido o inválido</h1><p>El seguimiento dura 3 días. Pedile a la persona que te mande un link nuevo.</p>'; return; }
+    const quien = esc(s.nombre || 'Tu contacto');
+    let estado = s.terminado ? `<p class="ok">✓ Terminó el recorrido.</p>`
+      : s.vuelvo_a && Date.parse(s.vuelvo_a) < Date.now() ? `<p class="mal">Pensaba terminar a las ${hora(s.vuelvo_a)} y todavía no marcó que llegó.</p>`
+      : `<p>Piensa terminar a las ${s.vuelvo_a ? hora(s.vuelvo_a) : '—'}.</p>`;
+    card.innerHTML = `<h1>${quien} está en “${esc(s.recorrido)}”</h1>${estado}
+      ${s.lat ? `<p>Última ubicación: ${hora(s.actualizado)} · <a href="https://maps.google.com/?q=${s.lat},${s.lon}" target="_blank" rel="noopener">Abrir en Google Maps</a></p>` : '<p>Todavía no hay ubicación (puede estar sin señal).</p>'}
+      <p style="font-size:.85rem">Si no responde y pasó la hora, llamá al <a href="tel:911">911</a>.</p>`;
+    if (s.lat) {
+      const p = [s.lat, s.lon];
+      if (!marca) marca = L.marker(p, { icon: L.divIcon({ className: '', html: '<div class="yo"></div>', iconSize: [20, 20], iconAnchor: [10, 10] }) }).addTo(map);
+      else marca.setLatLng(p);
+      if (!centrado) { map.setView(p, 14); centrado = true; }
+    }
+  }
+
+  if (!id || !cfg.supabaseUrl) {
+    card.innerHTML = '<h1>Link incompleto</h1><p>Abrí el link exactamente como te lo mandaron.</p>';
+  } else {
+    const sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+    actualizar(sb);
+    setInterval(() => actualizar(sb), 20000);
+  }
+</script>
+</body>
+</html>

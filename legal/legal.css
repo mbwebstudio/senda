@@ -1,0 +1,11 @@
+body{margin:0;background:#FFFDF8;color:#1C2A22;font:16px/1.6 Manrope,system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:32px 20px 64px}
+h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:2rem;line-height:1.15;margin:12px 0 4px}
+h2{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:1.2rem;margin:28px 0 8px}
+.fecha{color:#5E6B62;margin:0 0 20px}
+.aviso{background:#FFF3D6;color:#7A4E00;border-radius:12px;padding:10px 14px;font-size:.9rem}
+a{color:#1F4D3A;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:10px 8px;border-bottom:1px solid #E2DCCD}
+th{background:#F4EFE4}
+@media(max-width:600px){table,tr,td,th{display:block}th{display:none}td:first-child{font-weight:700;border:0;padding-bottom:0}}

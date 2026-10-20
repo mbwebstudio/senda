@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F4D3A">
+<meta name="description" content="Senderos de Lavalleja y Maldonado con avisos de otros caminantes, mapas sin señal y herramientas de seguridad.">
+<title>Senda · Trekking en Lavalleja y Maldonado</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="map" aria-label="Mapa de senderos"></div>
+
+<header class="topbar">
+  <button class="brand" id="btn-menu" aria-label="Abrir menú"><span class="brand-mark" aria-hidden="true"></span>Senda<svg class="menu-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+  <div class="top-actions">
+    <button class="icon-btn" id="btn-capa" title="Cambiar mapa" aria-label="Cambiar tipo de mapa">
+      <svg viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 10-5-10-5zM2 13l10 5 10-5M2 18l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-ubicacion" title="Mi ubicación" aria-label="Ir a mi ubicación">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    </button>
+    <button class="icon-btn sos" id="btn-sos" aria-label="Emergencia">SOS</button>
+  </div>
+</header>
+
+<div class="red" id="red" hidden role="status"></div>
+<div class="grabando" id="grabando" hidden role="status"></div>
+<div class="alerta" id="alerta" hidden role="alert"></div>
+
+<div class="crosshair" id="crosshair" hidden aria-hidden="true"></div>
+
+<button class="fab" id="btn-reportar" aria-label="Reportar algo en el camino">
+  <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 9v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.5" r="1.3" fill="currentColor"/></svg>
+  <span>Reportar</span>
+</button>
+
+<section class="sheet" id="sheet" aria-live="polite">
+  <button class="sheet-handle" id="sheet-handle" aria-label="Expandir o contraer"><span></span></button>
+  <div class="sheet-body" id="sheet-body"></div>
+</section>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="data/recorridos.js"></script>
+<script src="data/destacados.js"></script>
+<script src="js/db.js"></script>
+<script src="js/nativo.js"></script>
+<script src="js/nube.js"></script>
+<script src="js/mapas.js"></script>
+<script src="js/clima.js"></script>
+<script src="js/seguridad.js"></script>
+<script src="js/comunidad.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
