@@ -384,6 +384,7 @@ async function gestionarDescarga(r) {
 
 async function descargar(r) {
   if (!navigator.onLine) return toast('Necesitás conexión para descargar');
+  if (Anuncios.conPremio() && !(await verVideo())) return;
   const btn = $('#descargar');
   if (btn) { btn.disabled = true; btn.textContent = 'Descargando…'; }
   await Clima.de(r);
@@ -391,6 +392,25 @@ async function descargar(r) {
   await cargarDescargados();
   if (state.seleccionado === r) render();
   toast(res.fallas ? `Descargado, con ${res.fallas} partes del mapa que fallaron` : 'Listo: este recorrido funciona sin señal');
+}
+
+// A short rewarded video before each download (store app only). If the video cannot be
+// shown, the download goes ahead anyway: Anuncios.premio() takes care of that.
+function verVideo() {
+  return new Promise((listo) => {
+    abrirModal(`<h2 id="modal-title">Descargar para usar sin señal</h2>
+      <p class="lead">Mirá un video corto (unos 30 segundos) y se descarga el recorrido. Así Senda sigue siendo gratis.</p>
+      <div class="modal-actions"><button class="btn btn-ghost" id="vv-no">Cancelar</button><button class="btn btn-main" id="vv-si">Ver video y descargar</button></div>
+      ${Suscripcion.disponible ? '<p class="fine"><button class="link-suave" id="vv-sus">Descargar sin videos ni anuncios con Senda sin anuncios</button></p>' : ''}`);
+    $('#vv-no').onclick = () => { cerrarModal(); listo(false); };
+    if ($('#vv-sus')) $('#vv-sus').onclick = () => { listo(false); Suscripcion.ofrecer(); };
+    $('#vv-si').onclick = async () => {
+      cerrarModal();
+      const ok = await Anuncios.premio();
+      if (!ok) toast('Mirá el video completo para descargar el recorrido.');
+      listo(ok);
+    };
+  });
 }
 
 // ─── Walking mode: GPS (or simulation) + hazard alerts ───────────────────────

@@ -2,7 +2,7 @@
    Con los campos vacíos la app funciona igual, pero los avisos, cuentas, fotos y el
    seguimiento en vivo quedan solo en este dispositivo. */
 window.SENDA_CONFIG = {
-  version: '0.5.0',
+  version: '0.5.1',
 
   // Supabase (Project Settings → API). La "anon key" es pública por diseño: la seguridad
   // la dan las reglas (RLS) de supabase/schema.sql.
@@ -26,6 +26,8 @@ window.SENDA_CONFIG = {
     prueba: true,
     android: 'ca-app-pub-3940256099942544/9214589741',
     ios: 'ca-app-pub-3940256099942544/2435281174',
+    // Video con premio antes de descargar un recorrido (bloque "Bonificado" de AdMob).
+    premio: { android: 'ca-app-pub-3940256099942544/5224354917', ios: 'ca-app-pub-3940256099942544/1712485313' },
   },
 
   // Suscripción "Senda sin anuncios" (RevenueCat → Project settings → API keys: las claves

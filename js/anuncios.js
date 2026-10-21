@@ -52,12 +52,45 @@ const Anuncios = (() => {
     reservar(puesto ? alto : 0);
   }
 
+  /* Rewarded video before downloading a trail for use without signal. Resolves true when
+     the download may go ahead: after watching it, and also whenever the video cannot be
+     shown (no ad available, no connection for ads, any error), so nobody is ever left
+     without the offline map because of an ad. Only false if the person closes it early. */
+  const premioId = cfg.premio && cfg.premio[Nativo.plataforma];
+  const conPremio = () => !!(disponible && premioId && !Suscripcion.activa());
+  async function premio() {
+    if (!conPremio()) return true;
+    if (!listo) await iniciar();
+    if (!listo || Suscripcion.activa()) return true;
+    let gano = false, mostro = false;
+    const oyentes = [];
+    let tope = null;
+    const oir = async (ev, f) => oyentes.push(await P.addListener(ev, f));
+    const fin = new Promise((ok) => {
+      oir('onRewardedVideoAdReward', () => { gano = true; });
+      oir('onRewardedVideoAdShowed', () => { mostro = true; });
+      oir('onRewardedVideoAdDismissed', ok);
+      oir('onRewardedVideoAdFailedToShow', ok);
+      tope = setTimeout(ok, 180000); // never wait forever
+    });
+    try {
+      await Promise.race([P.prepareRewardVideoAd({ adId: premioId, isTesting: !!cfg.prueba }), new Promise((_, mal) => setTimeout(() => mal(new Error('tardó')), 10000))]);
+      P.showRewardVideoAd().then((item) => { if (item && (item.amount || item.type)) gano = true; }).catch(() => {});
+      await fin;
+    } catch (e) { console.warn('Video con premio no disponible', e); }
+    clearTimeout(tope);
+    oyentes.forEach((h) => h && h.remove && h.remove());
+    return !mostro || gano;
+  }
+
   // Subscribing hides the banner right away.
   Suscripcion.alCambiar((sin) => { if (sin) { quiere = false; reservar(0); if (listo) cola = cola.then(aplicar); } });
 
   return {
     disponible,
     iniciar,
+    premio,
+    conPremio,
     poner(visible) {
       quiere = !!visible && !Suscripcion.activa();
       if (!quiere) reservar(0); // free the space at once, even before the banner hides
