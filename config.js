@@ -2,7 +2,7 @@
    Con los campos vacíos la app funciona igual, pero los avisos, cuentas, fotos y el
    seguimiento en vivo quedan solo en este dispositivo. */
 window.SENDA_CONFIG = {
-  version: '0.4.2',
+  version: '0.5.0',
 
   // Supabase (Project Settings → API). La "anon key" es pública por diseño: la seguridad
   // la dan las reglas (RLS) de supabase/schema.sql.
@@ -27,6 +27,10 @@ window.SENDA_CONFIG = {
     android: 'ca-app-pub-3940256099942544/9214589741',
     ios: 'ca-app-pub-3940256099942544/2435281174',
   },
+
+  // Suscripción "Senda sin anuncios" (RevenueCat → Project settings → API keys: las claves
+  // públicas de cada app, appl_… para iPhone y goog_… para Android). Vacías = no se ofrece.
+  suscripcion: { ios: '', android: '', derecho: 'sin_anuncios' },
 
   // Dirección pública donde queda publicada la carpeta app/ (para el link de
   // "Seguir mi recorrido"). Ej.: https://senda.uy

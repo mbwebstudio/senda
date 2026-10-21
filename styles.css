@@ -206,6 +206,21 @@ h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1}
 .destacado .em{font-size:1.4rem}
 .destacado small{display:block;color:var(--muted)}
 
-@media(max-width:899px){.sheet-alta .fab{display:none}}
+@media(max-width:899px){.sheet-alta .fab,.sheet-alta .brujula{display:none}}
 .link-peligro{border:0;background:none;padding:6px 0;color:var(--danger);font:inherit;text-decoration:underline;cursor:pointer}
 .ayuda{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px}.ayuda summary{cursor:pointer;font-weight:700;color:var(--forest)}.ayuda p,.ayuda ul{margin:8px 0}
+
+/* Community */
+.seg.vista{margin:4px 0 10px}
+.soc-tabs{margin:6px 0 12px}
+.soc-fila{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:12px 2px;color:var(--ink);font:inherit}
+.soc-fila small{display:block;color:var(--muted);margin-top:3px}
+.soc-tit{font-weight:700;font-size:1.02rem}
+.soc-texto{white-space:pre-wrap;overflow-wrap:anywhere}
+.soc-resp{border-top:1px solid var(--line);padding:10px 0}
+.soc-resp small{color:var(--muted)}
+.soc-acciones{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0}
+.link-suave{border:0;background:none;padding:4px 0;color:var(--muted);font:inherit;font-size:.9rem;text-decoration:underline;cursor:pointer}
+.soc-persona{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.soc-persona .link-suave{color:var(--ink);text-decoration:none;font-size:1rem;text-align:left}
+.btn-chico{padding:7px 12px;font-size:.9rem;margin-left:6px}

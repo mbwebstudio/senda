@@ -19,6 +19,8 @@ const Anuncios = (() => {
      just not personalized ones. */
   async function iniciar() {
     if (!disponible || listo) return;
+    await Suscripcion.iniciar();
+    if (Suscripcion.activa()) return; // paid to remove ads: no consent forms either
     try {
       await P.initialize({ initializeForTesting: !!cfg.prueba });
       const c = await P.requestConsentInfo();
@@ -50,11 +52,14 @@ const Anuncios = (() => {
     reservar(puesto ? alto : 0);
   }
 
+  // Subscribing hides the banner right away.
+  Suscripcion.alCambiar((sin) => { if (sin) { quiere = false; reservar(0); if (listo) cola = cola.then(aplicar); } });
+
   return {
     disponible,
     iniciar,
     poner(visible) {
-      quiere = !!visible;
+      quiere = !!visible && !Suscripcion.activa();
       if (!quiere) reservar(0); // free the space at once, even before the banner hides
       if (listo) cola = cola.then(aplicar);
     },

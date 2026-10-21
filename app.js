@@ -83,6 +83,7 @@ const state = {
   colocando: null,   // pending report while choosing a spot on the map
   idx: null,         // closest route point while walking
   fuera: false,
+  vista: 'recorridos', // or 'comunidad' (forum, groups, events, friends)
 };
 
 // Demo reports so the map isn't empty when there is no server. They are labeled "ejemplo".
@@ -234,12 +235,27 @@ async function cargarDescargados() {
 // Banner only on the list and trail screens: never while walking, placing a report or under a dialog.
 const anuncioVisible = () => !state.navegando && !state.colocando && $('#modal').hidden;
 
+function mostrarVista(v) {
+  state.vista = v;
+  if (v === 'comunidad' && window.innerWidth < 900) setSheet('85vh');
+  render();
+}
+window.mostrarVista = mostrarVista;
+const pestanasHtml = () => `<div class="seg vista" role="tablist">${[['recorridos', 'Recorridos'], ['comunidad', 'Comunidad']].map(([v, t]) => `<button role="tab" data-vista="${v}" aria-pressed="${state.vista === v}">${t}</button>`).join('')}</div>`;
+
 function render() {
   const body = $('#sheet-body');
   Anuncios.poner(anuncioVisible());
+  if (!state.seleccionado && state.vista === 'comunidad') {
+    body.innerHTML = pestanasHtml() + '<h2>Comunidad</h2><div id="soc"></div>';
+    body.querySelectorAll('[data-vista]').forEach((b) => b.onclick = () => mostrarVista(b.dataset.vista));
+    Social.render($('#soc'));
+    return;
+  }
   if (!state.seleccionado) {
     const filtros = ['Todos', 'Maldonado', 'Lavalleja', 'Fácil', 'Media', 'Difícil'];
     body.innerHTML = `
+      ${pestanasHtml()}
       <h2>Recorridos</h2>
       <p class="lead">Senderos de Lavalleja y Maldonado, con avisos de otros caminantes.</p>
       <div class="chips" role="group" aria-label="Filtrar">${filtros.map((f) => `<button class="chip" aria-pressed="${f === state.filtro}" data-filtro="${f}">${f}</button>`).join('')}</div>
@@ -252,6 +268,7 @@ function render() {
           <span class="badge d-${r.dificultad}">${r.dificultad}</span></button>`;
       }).join('') || '<p class="empty">No hay recorridos con ese filtro.</p>'}</div>
       <p class="fine">Recorridos calculados sobre senderos de OpenStreetMap. Son una guía: verificá siempre las condiciones en el lugar.</p>`;
+    body.querySelectorAll('[data-vista]').forEach((b) => b.onclick = () => mostrarVista(b.dataset.vista));
     body.querySelectorAll('[data-filtro]').forEach((b) => b.onclick = () => { state.filtro = b.dataset.filtro; dibujarMarcadoresRecorridos(); render(); });
     body.querySelectorAll('[data-id]').forEach((b) => b.onclick = () => seleccionar(b.dataset.id));
     return;
@@ -567,6 +584,7 @@ async function abrirMenu() {
       <button data-m="contacto"><span>🆘</span>Contacto de emergencia</button>
       <a href="legal/terminos.html" target="_blank"><span>📄</span>Términos y responsabilidad</a>
       <a href="legal/privacidad.html" target="_blank"><span>🔒</span>Privacidad</a>
+      ${Suscripcion.disponible ? '<button data-m="sinanuncios"><span>⭐</span>Senda sin anuncios</button>' : ''}
       <button data-m="acerca"><span>ℹ️</span>Acerca de Senda</button>
     </div>`);
   document.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => ({
@@ -575,6 +593,7 @@ async function abrirMenu() {
     descargas: verDescargas,
     contacto: editarContacto,
     acerca: verAcerca,
+    sinanuncios: Suscripcion.ofrecer,
   })[b.dataset.m]());
 }
 
@@ -609,7 +628,7 @@ function verAcerca() {
 
 // ─── First run: welcome + terms ───────────────────────────────────────────────
 async function bienvenida() {
-  if (await DB.get('kv', 'acepto:v1').catch(() => false)) { Anuncios.iniciar(); return; }
+  if (await DB.get('kv', 'acepto:v2').catch(() => false)) { Anuncios.iniciar(); return; }
   $('#modal').dataset.fijo = '1';
   abrirModal(`<h2 id="modal-title">Bienvenido a Senda</h2>
     <p class="lead">Senderos de Lavalleja y Maldonado, con avisos de otros caminantes.</p>
@@ -618,10 +637,10 @@ async function bienvenida() {
       <li><b>Sin señal:</b> descargá el recorrido antes de salir.</li>
       <li><b>Seguridad:</b> contale a alguien tu plan y usá el botón SOS si lo necesitás.</li>
     </ul>
-    <label class="check"><input type="checkbox" id="bv-ok"> <span>Entiendo que el trekking implica riesgos, que lo hago bajo mi responsabilidad y que la información de Senda es orientativa y puede no estar al día. Acepto los <a href="legal/terminos.html" target="_blank">términos</a> y la <a href="legal/privacidad.html" target="_blank">política de privacidad</a>.</span></label>
+    <label class="check"><input type="checkbox" id="bv-ok"> <span>Entiendo que el trekking implica riesgos, que lo hago bajo mi responsabilidad y que la información de Senda es orientativa y puede no estar al día. Acepto los <a href="legal/terminos.html" target="_blank">términos y las reglas de la comunidad</a> (tolerancia cero con insultos y acoso) y la <a href="legal/privacidad.html" target="_blank">política de privacidad</a>.</span></label>
     <div class="modal-actions"><button class="btn btn-main" id="bv-entrar" disabled style="opacity:.5">Empezar</button></div>`);
   $('#bv-ok').onchange = (e) => { $('#bv-entrar').disabled = !e.target.checked; $('#bv-entrar').style.opacity = e.target.checked ? 1 : 0.5; };
-  $('#bv-entrar').onclick = async () => { await DB.set('kv', 'acepto:v1', Date.now()); delete $('#modal').dataset.fijo; cerrarModal(); Anuncios.iniciar(); };
+  $('#bv-entrar').onclick = async () => { await DB.set('kv', 'acepto:v2', Date.now()); delete $('#modal').dataset.fijo; cerrarModal(); Anuncios.iniciar(); };
 }
 
 // ─── Connection / pending indicator ───────────────────────────────────────────
@@ -763,7 +782,7 @@ $('#sheet-handle').onclick = () => {
 Reportes.alCambiar(() => {
   dibujarReportes();
   const escribiendo = document.activeElement && document.activeElement.closest('#sheet') && /INPUT|TEXTAREA/.test(document.activeElement.tagName);
-  if (!state.colocando && !escribiendo) render();
+  if (!state.colocando && !escribiendo && state.vista !== 'comunidad') render();
 });
 
 (async () => {

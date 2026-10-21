@@ -36,7 +36,9 @@ const Comunidad = (() => {
         <p>Muestran cuánto ayudaste a otros caminantes. No se canjean por nada: son un reconocimiento, y con más puntos subís de medalla (🥾 Caminante → 🧭 Baqueano → 🌿 Guardasenda → ⛰️ Guía de la sierra).</p>
         <ul class="tips"><li>Publicar un aviso: 2 puntos</li><li>Cada persona que confirma que tu aviso sigue ahí: 1</li><li>Comentario: 1 · Foto aprobada: 5</li><li>Recorrido grabado que agregamos a Senda: 25</li></ul>
       </details>
-      <label class="field"><span>Tu nombre</span><input id="cta-nombre" maxlength="40" value="${esc(perfil.nombre || '')}"></label>
+      <label class="field"><span>Tu nombre (lo ven en el foro, grupos y salidas)</span><input id="cta-nombre" maxlength="40" value="${esc(perfil.nombre || '')}"></label>
+      <div class="fila-2"><label class="field"><span>Zona</span><input id="cta-zona" maxlength="40" placeholder="Ej.: Minas" value="${esc(perfil.zona || '')}"></label>
+      <label class="field"><span>Sobre vos (opcional)</span><input id="cta-bio" maxlength="200" placeholder="Ej.: Camino los fines de semana" value="${esc(perfil.bio || '')}"></label></div>
       ${real ? `<p class="lead">Entraste como <b>${esc(u.email || 'usuario')}</b>. Tus puntos y lo que publicaste quedan guardados aunque cambies de teléfono.</p>` : `
         <p class="lead">Ahora usás Senda sin cuenta, y para caminar, ver y publicar avisos no hace falta.</p>
         <details class="ayuda"><summary>¿Para qué crear una cuenta?</summary>
@@ -49,9 +51,12 @@ const Comunidad = (() => {
       ${u ? '<p class="fine"><button class="link-peligro" id="cta-borrar">Borrar mi cuenta y mis datos</button></p>' : ''}`);
     if ($('#cta-borrar')) $('#cta-borrar').onclick = () => confirmarBorrado(u);
     $('#cta-ok').onclick = async () => {
-      const nombre = $('#cta-nombre').value.trim();
-      await DB.set('kv', 'perfil', { nombre });
-      if (u) await Nube.sb.from('perfiles').upsert({ id: u.id, nombre });
+      const datos = { nombre: $('#cta-nombre').value.trim(), zona: $('#cta-zona').value.trim() || null, bio: $('#cta-bio').value.trim() || null };
+      await DB.set('kv', 'perfil', datos);
+      if (u) {
+        const { error } = await Nube.sb.from('perfiles').upsert({ id: u.id, ...datos });
+        if (error) return toast(error.code === '23514' ? 'Algún dato es demasiado largo' : 'No se pudo guardar: ' + error.message);
+      }
       cerrarModal(); toast('Guardado');
     };
     const redirect = Nativo.esNativo ? 'uy.mbwebstudio.senda://login' : location.href.split('#')[0];
@@ -86,7 +91,7 @@ const Comunidad = (() => {
         if (error) throw error;
         await Nube.sb.auth.signOut({ scope: 'local' }).catch(() => {});
         for (const k of await DB.keys('kv').catch(() => [])) {
-          if (k !== 'acepto:v1' && !String(k).startsWith('descarga:')) await DB.del('kv', k);
+          if (k !== 'acepto:v2' && !String(k).startsWith('descarga:')) await DB.del('kv', k);
         }
         for (const s of ['outbox', 'tracks']) for (const k of await DB.keys(s).catch(() => [])) await DB.del(s, k);
         cerrarModal(); toast('Listo: borramos tu cuenta y tus datos');
