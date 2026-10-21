@@ -70,7 +70,18 @@ const Nube = (() => {
     if (error) throw error;
     if (Nativo.esNativo && data && data.url) Nativo.abrir(data.url);
   }
-  return { activa, sb, sesion, usuario, vincular };
+  // Is the arrival SMS really being sent? A switch on the server (Twilio configured), so the
+  // app never promises an SMS that will not arrive. Last answer kept for use without signal.
+  async function smsActivo() {
+    if (!sb) return false;
+    try {
+      const r = await Promise.race([sb.rpc('sms_activo'), new Promise((_, mal) => setTimeout(() => mal(new Error('tardó')), 4000))]);
+      if (!r.error) { DB.set('kv', 'sms', !!r.data).catch(() => {}); return !!r.data; }
+    } catch { /* offline or slow */ }
+    return !!(await DB.get('kv', 'sms').catch(() => false));
+  }
+
+  return { activa, sb, sesion, usuario, vincular, smsActivo };
 })();
 
 // ─── Outbox: actions made without signal, sent when it comes back ─────────────

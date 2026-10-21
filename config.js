@@ -2,7 +2,7 @@
    Con los campos vacíos la app funciona igual, pero los avisos, cuentas, fotos y el
    seguimiento en vivo quedan solo en este dispositivo. */
 window.SENDA_CONFIG = {
-  version: '0.6.0',
+  version: '0.6.1',
 
   // Supabase (Project Settings → API). La "anon key" es pública por diseño: la seguridad
   // la dan las reglas (RLS) de supabase/schema.sql.

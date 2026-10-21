@@ -50,6 +50,7 @@ const Seguridad = (() => {
       vuelta.setMinutes(Math.ceil(vuelta.getMinutes() / 15) * 15, 0, 0);
       const valorHora = `${String(vuelta.getHours()).padStart(2, '0')}:${String(vuelta.getMinutes()).padStart(2, '0')}`;
       const conServidor = Nube.activa;
+      const sms = conServidor && (await Nube.smsActivo());
       abrirModal(`
         <h2 id="modal-title">Antes de salir</h2>
         <p class="lead">Si algo pasa, que alguien sepa dónde estás.</p>
@@ -58,9 +59,9 @@ const Seguridad = (() => {
         <div class="field"><span>Contacto de emergencia</span>
           <div class="fila-2"><input id="seg-cnombre" placeholder="Nombre" value="${esc(c.nombre || '')}" autocomplete="name"><input id="seg-ctel" type="tel" placeholder="Celular (09…)" value="${esc(c.tel || '')}" autocomplete="tel"></div>
         </div>
-        <label class="check"><input type="checkbox" id="seg-avisar" ${c.tel ? 'checked' : ''}> <span>Avisarle si no marco que llegué${conServidor ? ' (le llega un SMS 30 minutos después de la hora)' : ''}</span></label>
+        ${sms ? `<label class="check"><input type="checkbox" id="seg-avisar" ${c.tel ? 'checked' : ''}> <span>Avisarle si no marco que llegué (le llega un SMS 30 minutos después de la hora)</span></label>` : '<p class="fine">🔔 Te avisamos en el teléfono a la hora de vuelta, y otra vez 30 minutos después si no marcaste que llegaste.</p>'}
         <label class="check"><input type="checkbox" id="seg-vivo" ${conServidor ? '' : 'disabled'}> <span>Compartir mi ubicación en vivo con un link${conServidor ? '' : ' <small>(se activa cuando esté configurado el servidor)</small>'}</span></label>
-        ${!conServidor ? '<p class="fine">Por ahora el aviso de llegada es un recordatorio en tu teléfono: tu contacto no recibe nada automáticamente. Mandale tu plan por WhatsApp con el botón de abajo.</p>' : ''}
+        ${!sms ? '<p class="fine">Por ahora tu contacto no recibe nada automáticamente: mandale tu plan por WhatsApp con el botón de abajo.</p>' : ''}
         <div class="modal-actions">
           <button class="btn btn-ghost" id="seg-cancelar">Cancelar</button>
           <button class="btn btn-ghost" id="seg-plan">Mandar mi plan</button>
@@ -70,7 +71,7 @@ const Seguridad = (() => {
         const [h, m] = $('#seg-hora').value.split(':').map(Number);
         const t = new Date(); t.setHours(h, m, 0, 0);
         if (t < Date.now()) t.setDate(t.getDate() + 1);
-        return { vuelvoA: +t, contacto: { nombre: $('#seg-cnombre').value.trim(), tel: $('#seg-ctel').value.replace(/[^\d+]/g, '') }, avisar: $('#seg-avisar').checked, vivo: $('#seg-vivo').checked };
+        return { vuelvoA: +t, contacto: { nombre: $('#seg-cnombre').value.trim(), tel: $('#seg-ctel').value.replace(/[^\d+]/g, '') }, avisar: !!($('#seg-avisar') && $('#seg-avisar').checked), vivo: $('#seg-vivo').checked, sms };
       };
       const puesta = await Clima.puestaHoy(r);
       const revisarNoche = () => {
@@ -100,7 +101,7 @@ const Seguridad = (() => {
     actual = { recorrido: r, vuelvoA: o.vuelvoA, notifs: [], avisoNoche: false, seguimientoId: null };
     ultimaSubida = 0; ultimaPos = null;
     actual.notifs.push(await Nativo.notificar('¿Ya terminaste?', `Pensabas terminar "${r.nombre}" a las ${hhmm(o.vuelvoA)}. Si ya llegaste, tocá "Terminar recorrido".`, o.vuelvoA));
-    actual.notifs.push(await Nativo.notificar('Todavía no marcaste que llegaste', Nube.activa && o.avisar ? `Vamos a avisarle a ${o.contacto.nombre || 'tu contacto'}. Si estás bien, terminá el recorrido en Senda.` : 'Si estás bien, terminá el recorrido en Senda. Si necesitás ayuda, llamá al 911.', o.vuelvoA + 30 * 60000));
+    actual.notifs.push(await Nativo.notificar('Todavía no marcaste que llegaste', o.sms && o.avisar ? `Vamos a avisarle a ${o.contacto.nombre || 'tu contacto'}. Si estás bien, terminá el recorrido en Senda.` : 'Si estás bien, terminá el recorrido en Senda. Si necesitás ayuda, llamá al 911.', o.vuelvoA + 30 * 60000));
     if (Nube.activa && (o.vivo || (o.avisar && o.contacto.tel))) {
       actual.seguimientoId = uuid();
       await Bandeja.agregar('seguimiento-crear', {
