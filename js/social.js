@@ -333,6 +333,7 @@ const Social = (() => {
       if (error) { $('#ne-si').disabled = false; return toast(fallo(error)); }
       const u = await usuario();
       await sb().from('evento_asistentes').insert({ evento: data.id, usuario: u.id });
+      await recordar({ id: data.id, titulo, fecha: f.toISOString(), encuentro: $('#ne-enc').value.trim(), recorrido: $('#ne-rec').value || null });
       toast('Salida publicada'); render(); abrirEvento(data.id);
     };
   }
@@ -371,13 +372,65 @@ const Social = (() => {
       if (!yoReal) return;
       const { error } = await sb().from('evento_asistentes').insert({ evento: id, usuario: yoReal.id });
       if (error && error.code !== '23505') return toast(fallo(error).replace('No se pudo: ', ''));
-      toast('¡Anotado!'); abrirEvento(id);
+      const avisa = await recordar(ev);
+      toast(avisa ? '¡Anotado! Te avisamos la noche antes y 2 horas antes.' : '¡Anotado!'); abrirEvento(id);
     };
-    if ($('#ee-novoy')) $('#ee-novoy').onclick = async () => { await sb().from('evento_asistentes').delete().eq('evento', id).eq('usuario', yo); abrirEvento(id); };
+    if ($('#ee-novoy')) $('#ee-novoy').onclick = async () => { await sb().from('evento_asistentes').delete().eq('evento', id).eq('usuario', yo); await olvidar(id); abrirEvento(id); };
     if ($('#ee-cancelar')) $('#ee-cancelar').onclick = async () => {
       if (!confirm('¿Cancelar la salida? Le va a aparecer cancelada a quienes se anotaron.')) return;
-      await sb().from('eventos').update({ cancelado: true }).eq('id', id); abrirEvento(id);
+      await sb().from('eventos').update({ cancelado: true }).eq('id', id); await olvidar(id); abrirEvento(id);
     };
+  }
+
+  // ─── Reminders of the outings I'm going to ──────────────────────────────────────
+  // Two notifications per outing, the evening before (20:00) and 2 hours before, with the
+  // forecast. Ids are derived from the outing so any later session can replace or cancel them.
+  const idAviso = (eventoId, n) => (parseInt(eventoId.replace(/-/g, '').slice(0, 7), 16) * 2 + n) % 2000000000 + 1;
+  const leerAvisos = async () => (await DB.get('kv', 'recordatorios').catch(() => null)) || {};
+
+  async function olvidar(eventoId) {
+    const todos = await leerAvisos();
+    for (const id of todos[eventoId] || []) await Nativo.cancelar(id);
+    if (Nativo.esNativo) for (const n of [0, 1]) await Nativo.cancelar(idAviso(eventoId, n));
+    delete todos[eventoId];
+    await DB.set('kv', 'recordatorios', todos).catch(() => {});
+  }
+
+  async function recordar(ev) {
+    await olvidar(ev.id);
+    const t = Date.parse(ev.fecha);
+    const r = ev.recorrido && recorridos.find((x) => x.id === ev.recorrido);
+    const pron = await Clima.resumenDia(r ? r.inicio.coord : [-34.6, -55.1], t);
+    const hora = new Date(t).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const lugar = ev.encuentro ? ` en ${ev.encuentro}` : r ? ` en ${r.inicio.nombre}` : '';
+    const vispera = new Date(t - 86400000); vispera.setHours(20, 0, 0, 0);
+    const avisos = [
+      [vispera.getTime(), `Mañana: ${ev.titulo}`, `A las ${hora}${lugar}.${pron ? ' ' + pron + '.' : ''} Prepará agua y abrigo, y avisale a alguien a dónde vas.`],
+      [t - 2 * 3600000, `En 2 horas: ${ev.titulo}`, `${hora}${lugar}.${pron ? ' ' + pron + '.' : ''}`],
+    ];
+    const ids = [];
+    for (const [i, [cuando, titulo, cuerpo]] of avisos.entries()) {
+      if (cuando <= Date.now()) continue;
+      const id = await Nativo.notificar(titulo, cuerpo, cuando, idAviso(ev.id, i));
+      if (id != null) ids.push(id);
+    }
+    const todos = await leerAvisos();
+    todos[ev.id] = ids.filter((x) => typeof x === 'number'); // web timers do not survive a reload
+    await DB.set('kv', 'recordatorios', todos).catch(() => {});
+    return ids.length > 0;
+  }
+
+  // At start (store app): schedule what is missing, drop outings cancelled or left.
+  async function sincronizarRecordatorios() {
+    if (!Nube.activa || !navigator.onLine || !Nativo.esNativo) return;
+    const u = await cuentaReal();
+    if (!u) return;
+    const { data } = await sb().from('evento_asistentes').select('eventos(id,titulo,fecha,encuentro,recorrido,cancelado)').eq('usuario', u.id);
+    if (!data) return;
+    const vigentes = data.map((x) => x.eventos).filter((e) => e && !e.cancelado && Date.parse(e.fecha) > Date.now());
+    const todos = await leerAvisos();
+    for (const id of Object.keys(todos)) if (!vigentes.some((e) => e.id === id)) await olvidar(id);
+    for (const e of vigentes) if (!todos[e.id]) await recordar(e);
   }
 
   // ─── Friends ──────────────────────────────────────────────────────────────────
@@ -451,5 +504,5 @@ const Social = (() => {
     seleccionar(id);
   }
 
-  return { render };
+  return { render, sincronizarRecordatorios, recordar, olvidar };
 })();

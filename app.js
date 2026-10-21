@@ -427,6 +427,7 @@ function moverYo(p, { centrar = true } = {}) {
     const r = state.seleccionado;
     const { idx, d } = masCercano(p, r.ruta);
     state.idx = idx;
+    Caminatas.punto(p, idx);
     if (centrar) map.panTo(p, { animate: true });
     revisarPeligros();
     Seguridad.posicion(p, idx);
@@ -461,6 +462,7 @@ async function empezar(simular) {
     await Seguridad.iniciar(r, o);
   }
   state.navegando = true;
+  if (!simular) Caminatas.empezar(r);
   Anuncios.poner(false);
   state.avisados.clear();
   state.fuera = false;
@@ -495,7 +497,10 @@ async function terminar(llegue) {
   state.pararGps = null; state.simulacion = null; state.idx = null;
   $('#alerta').hidden = true;
   if (Seguridad.activo()) await Seguridad.terminar();
-  if (llegue && eraReal) toast('¡Bien ahí! Recorrido terminado.');
+  // A real walk is saved even if stopped halfway; the summary shows when finishing it.
+  const caminata = eraReal ? await Caminatas.terminar() : null;
+  if (llegue && caminata) Caminatas.abrirResumen(caminata);
+  else if (llegue && eraReal) toast('¡Bien ahí! Recorrido terminado.');
   if (state.seleccionado) { setSheet(window.innerWidth < 900 ? '52vh' : '38vh'); render(); }
 }
 
@@ -596,9 +601,12 @@ function abrirSOS() {
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 async function abrirMenu() {
   const n = descargados.size;
+  // Moderators get a link to the panel (the server decides who is one).
+  const admin = Nube.activa && navigator.onLine ? await Nube.usuario().then((u) => u && !u.is_anonymous && Nube.sb.rpc('soy_admin').then((r) => r.data)).catch(() => false) : false;
   abrirModal(`<h2 id="modal-title">Senda</h2>
     <div class="menu">
       <button data-m="cuenta"><span>👤</span>Tu cuenta y puntos</button>
+      <button data-m="caminatas"><span>🥾</span>Mis caminatas</button>
       <button data-m="grabar"><span>📍</span>Grabar un recorrido</button>
       <button data-m="descargas"><span>⬇</span>Recorridos sin señal <small>${n ? `${n} descargado${n > 1 ? 's' : ''}` : 'ninguno'}</small></button>
       <button data-m="contacto"><span>🆘</span>Contacto de emergencia</button>
@@ -606,10 +614,12 @@ async function abrirMenu() {
       <a href="legal/privacidad.html" target="_blank"><span>🔒</span>Privacidad</a>
       ${Suscripcion.disponible ? '<button data-m="sinanuncios"><span>⭐</span>Senda sin anuncios</button>' : ''}
       <button data-m="acerca"><span>ℹ️</span>Acerca de Senda</button>
+      ${admin ? '<a href="moderar.html" target="_blank"><span>🛡️</span>Moderar la comunidad</a>' : ''}
     </div>`);
   document.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => ({
     cuenta: Comunidad.abrirCuenta,
     grabar: Comunidad.Grabador.lista,
+    caminatas: Caminatas.abrirLista,
     descargas: verDescargas,
     contacto: editarContacto,
     acerca: verAcerca,
@@ -812,6 +822,7 @@ Reportes.alCambiar(() => {
   await Reportes.iniciar(ejemplos);
   render();
   Comunidad.cargarDestacados();
+  setTimeout(() => Social.sincronizarRecordatorios().catch(() => {}), 4000);
   bienvenida();
   pintarRed();
   setInterval(dibujarReportes, 60000); // let expired reports disappear while the app is open

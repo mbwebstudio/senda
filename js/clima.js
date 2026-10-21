@@ -85,6 +85,24 @@ const Clima = (() => {
     return puestaDeSol(new Date(), r.inicio.coord[0], r.inicio.coord[1]);
   }
 
-  return { de, html, alertas, puestaHoy, puestaDeSol };
+  /* One-line forecast for a given day at a point, for reminders of outings ("☀️ Despejado,
+     12–22 °C, 10% de lluvia"). Open-Meteo forecasts up to 16 days ahead; null beyond that
+     or without signal. */
+  async function resumenDia([lat, lon], fechaMs) {
+    const dia = new Date(fechaMs - 3 * 3600000).toISOString().slice(0, 10); // date in Uruguay
+    if (fechaMs - Date.now() > 15 * 86400000 || !navigator.onLine) return null;
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`
+        + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_gusts_10m_max&timezone=America%2FMontevideo&start_date=${dia}&end_date=${dia}`;
+      const j = await (await fetch(url)).json();
+      const d = j.daily;
+      const x = { codigo: d.weather_code[0], max: Math.round(d.temperature_2m_max[0]), min: Math.round(d.temperature_2m_min[0]), lluvia: d.precipitation_probability_max[0], rafagas: Math.round(d.wind_gusts_10m_max[0]) };
+      const [em, txt] = describir(x.codigo);
+      const al = alertas(x);
+      return `${em} ${txt}, ${x.min}–${x.max} °C, ${x.lluvia}% de lluvia${al.length ? '. ⚠️ ' + al[0] : ''}`;
+    } catch { return null; }
+  }
+
+  return { de, html, alertas, puestaHoy, puestaDeSol, resumenDia };
 })();
 window.Clima = Clima;

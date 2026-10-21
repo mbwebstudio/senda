@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Senda · Moderación</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Standalone page: undo the map layout of the app. */
+  html, body { height: auto; overflow: auto; }
+  body { background: var(--sand); }
+  .mod { max-width: 760px; margin: 0 auto; padding: 18px 16px 60px; }
+  .mod h1 { font-family: var(--display); color: var(--forest); margin: 4px 0 2px; }
+  .card { background: var(--paper); border-radius: 16px; padding: 14px 16px; margin: 12px 0; box-shadow: 0 6px 18px -12px rgba(0,0,0,.35); }
+  .card .meta { color: var(--muted); font-size: .88rem; }
+  .card .txt { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; }
+  .card .motivos { background: #FFF4E6; border-radius: 10px; padding: 6px 10px; font-size: .9rem; }
+  .card .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .card img { width: 100%; max-height: 360px; object-fit: contain; border-radius: 12px; background: #eee; }
+  .etiqueta { display: inline-block; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--forest); }
+  .oculto { color: var(--danger); font-weight: 700; }
+  .vacio { text-align: center; color: var(--muted); padding: 30px 0; }
+</style>
+</head>
+<body>
+<main class="mod">
+  <h1>Moderación de Senda</h1>
+  <p class="lead" id="quien"></p>
+  <div id="contenido"><p class="vacio">Cargando…</p></div>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+'use strict';
+/* Moderation panel: reported content, photos waiting for approval and the latest posts.
+   Only accounts listed in the admins table can use it (checked by the server). */
+const C = window.SENDA_CONFIG;
+const sb = window.supabase.createClient(C.supabaseUrl, C.supabaseAnonKey);
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fecha = (iso) => new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const TIPOS = { tema: 'Tema del foro', respuesta: 'Respuesta del foro', evento: 'Salida', grupo: 'Grupo', comentario: 'Comentario de recorrido', perfil: 'Perfil' };
+let pestana = 'denuncias';
+function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 3200); }
+
+async function entrar() {
+  $('#contenido').innerHTML = `<div class="card"><p>Entrá con el correo de una cuenta de administrador. Te llega un link: abrilo en este mismo navegador.</p>
+    <label class="field"><span>Correo</span><input id="mail" type="email" autocomplete="email"></label>
+    <div class="acciones"><button class="btn btn-main" id="link">Mandarme el link</button></div></div>`;
+  $('#link').onclick = async () => {
+    const email = $('#mail').value.trim();
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: location.href.split('#')[0] } });
+    toast(error ? 'No se pudo: ' + error.message : 'Listo, revisá tu correo');
+  };
+}
+
+async function iniciar() {
+  const { data } = await sb.auth.getSession();
+  const u = data.session && data.session.user;
+  if (!u || u.is_anonymous) return entrar();
+  const { data: admin } = await sb.rpc('soy_admin');
+  $('#quien').innerHTML = `${esc(u.email)} · <button class="link-suave" id="salir">Salir</button>`;
+  $('#salir').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  if (!admin) { $('#contenido').innerHTML = '<div class="card">Esta cuenta no es administradora de Senda.</div>'; return; }
+  mostrar();
+}
+
+async function mostrar() {
+  const [p, f] = await Promise.all([sb.rpc('moderar_pendientes'), sb.rpc('moderar_fotos')]);
+  if (p.error || f.error) { $('#contenido').innerHTML = `<div class="card">Error: ${esc((p.error || f.error).message)}</div>`; return; }
+  const tabs = [['denuncias', `Denuncias (${p.data.length})`], ['fotos', `Fotos por aprobar (${f.data.length})`], ['recientes', 'Lo último publicado']];
+  $('#contenido').innerHTML = `<div class="chips">${tabs.map(([id, t]) => `<button class="chip" aria-pressed="${id === pestana}" data-p="${id}">${t}</button>`).join('')}</div><div id="lista"></div>`;
+  document.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { pestana = b.dataset.p; mostrar(); });
+  const lista = $('#lista');
+  if (pestana === 'denuncias') {
+    lista.innerHTML = p.data.length ? p.data.map((x) => tarjeta(x, `<div class="motivos"><b>${x.denuncias} denuncia${x.denuncias > 1 ? 's' : ''}</b> · ${esc(x.motivos)}</div>`)).join('')
+      : '<p class="vacio">No hay denuncias pendientes. 🎉</p>';
+  } else if (pestana === 'fotos') {
+    lista.innerHTML = f.data.length ? f.data.map((x) => `<div class="card"><span class="etiqueta">Foto · ${esc(x.recorrido)}</span>
+      <p class="meta">${esc(x.autor_nombre || 'Sin nombre')} · ${fecha(x.creado)}</p>
+      <img src="${C.supabaseUrl}/storage/v1/object/public/fotos/${encodeURI(x.ruta)}" alt="" loading="lazy">
+      ${x.pie ? `<p class="txt">${esc(x.pie)}</p>` : ''}
+      <div class="acciones"><button class="btn btn-main" data-a="aprobar_foto" data-o="${x.id}" data-t="foto">Aprobar</button><button class="btn btn-ghost" data-a="rechazar_foto" data-o="${x.id}" data-t="foto">Rechazar</button></div></div>`).join('')
+      : '<p class="vacio">No hay fotos esperando aprobación.</p>';
+  } else {
+    const r = await sb.rpc('moderar_recientes');
+    lista.innerHTML = (r.data || []).length ? r.data.map((x) => tarjeta(x, '')).join('') : '<p class="vacio">Todavía no hay publicaciones.</p>';
+  }
+  lista.querySelectorAll('[data-a]').forEach((b) => b.onclick = () => accion(b.dataset.t, b.dataset.o, b.dataset.a));
+}
+
+function tarjeta(x, extra) {
+  return `<div class="card"><span class="etiqueta">${TIPOS[x.tipo] || x.tipo}</span>
+    <p class="meta">${esc(x.autor_nombre || 'Sin nombre')} · ${fecha(x.ultima || x.creado)}${x.oculto ? ' · <span class="oculto">Oculto</span>' : ''}</p>
+    ${extra}
+    <p class="txt">${x.texto == null ? '<i>Ya no existe (lo borró su autor)</i>' : esc(x.texto)}</p>
+    <div class="acciones">
+      ${x.oculto ? '' : `<button class="btn btn-ghost" data-a="ocultar" data-t="${x.tipo}" data-o="${x.objeto}">Ocultar</button>`}
+      <button class="btn btn-ghost" data-a="mostrar" data-t="${x.tipo}" data-o="${x.objeto}">${x.oculto ? 'Volver a mostrar' : 'Está bien, dejar'}</button>
+      ${x.texto == null ? '' : `<button class="btn btn-stop" data-a="echar" data-t="${x.tipo}" data-o="${x.objeto}">Echar al autor</button>`}
+    </div></div>`;
+}
+
+async function accion(t, o, a) {
+  if (a === 'echar' && !confirm('¿Echar a esta persona? Se borra su cuenta y todo lo que publicó. No se puede deshacer.')) return;
+  const { error } = await sb.rpc('moderar', { t, o, accion: a });
+  if (error) return toast('No se pudo: ' + error.message);
+  toast({ ocultar: 'Oculto', mostrar: 'Listo', echar: 'Cuenta borrada', aprobar_foto: 'Foto aprobada', rechazar_foto: 'Foto rechazada' }[a]);
+  mostrar();
+}
+
+sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN') iniciar(); });
+iniciar();
+</script>
+</body>
+</html>

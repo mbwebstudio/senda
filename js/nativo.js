@@ -7,7 +7,9 @@ const Nativo = (() => {
   const cap = window.Capacitor;
   const esNativo = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
   const P = (cap && cap.Plugins) || {};
-  let idNotif = 1;
+  // Notifications scheduled in an earlier session must not be overwritten: start the ids from
+  // the clock instead of 1 (Android needs them under 2^31).
+  let idNotif = Math.floor(Date.now() / 1000) % 1000000000;
 
   return {
     esNativo,
@@ -92,9 +94,10 @@ const Nativo = (() => {
       if (navigator.vibrate) navigator.vibrate(patron);
     },
 
-    /* Notification now or at a given time (ms). Returns an id usable with cancelar(). */
-    async notificar(titulo, cuerpo, cuando) {
-      const id = idNotif++;
+    /* Notification now or at a given time (ms). Returns an id usable with cancelar().
+       idFijo: a stable id, to replace or cancel it later from another session. */
+    async notificar(titulo, cuerpo, cuando, idFijo) {
+      const id = idFijo || idNotif++;
       if (esNativo && P.LocalNotifications) {
         try {
           const perm = await P.LocalNotifications.requestPermissions();
@@ -114,6 +117,26 @@ const Nativo = (() => {
       if (id == null) return;
       if (typeof id === 'object' && id.web) { clearTimeout(id.web); return; }
       if (esNativo && P.LocalNotifications) await P.LocalNotifications.cancel({ notifications: [{ id }] }).catch(() => {});
+    },
+
+    /* Share an image (PNG blob) to Instagram, WhatsApp, etc. The app saves it to its cache
+       folder first because the share sheet needs a file; browsers share it directly or,
+       if they cannot, download it. */
+    async compartirImagen(blob, nombre, texto) {
+      if (esNativo && P.Share && P.Filesystem) {
+        const base64 = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
+        const { uri } = await P.Filesystem.writeFile({ path: nombre, data: base64, directory: 'CACHE' });
+        await P.Share.share({ title: 'Senda', text: texto, files: [uri], dialogTitle: 'Compartir' });
+        return 'compartido';
+      }
+      const archivo = new File([blob], nombre, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+        try { await navigator.share({ files: [archivo], text: texto }); return 'compartido'; } catch (e) { if (e.name === 'AbortError') return 'cancelado'; }
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = nombre; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      return 'descargado';
     },
 
     /* Share sheet; falls back to copying the text. Returns how it was shared. */
