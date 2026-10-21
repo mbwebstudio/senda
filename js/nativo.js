@@ -60,6 +60,24 @@ const Nativo = (() => {
       }
     },
 
+    /* Compass: which way the phone points, in degrees (0 = north, clockwise). iPhone only
+       gives it after asking, and the question must come from a tap: call pedirBrujula()
+       inside a click handler, before any await. */
+    pedirBrujula() {
+      const D = window.DeviceOrientationEvent;
+      if (!D) return Promise.resolve(false);
+      if (typeof D.requestPermission !== 'function') return Promise.resolve(true);
+      return D.requestPermission().then((r) => r === 'granted').catch(() => false);
+    },
+    brujula(cb) {
+      const giro = () => (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      const iphone = (e) => { if (e.webkitCompassHeading != null) cb((e.webkitCompassHeading + giro() + 360) % 360); };
+      const android = (e) => { if (e.alpha != null) cb((360 - e.alpha + giro()) % 360); };
+      window.addEventListener('deviceorientation', iphone);
+      window.addEventListener('deviceorientationabsolute', android);
+      return () => { window.removeEventListener('deviceorientation', iphone); window.removeEventListener('deviceorientationabsolute', android); };
+    },
+
     // 'granted' | 'denied' | 'prompt' | 'unknown', without asking the user.
     async permisoUbicacion() {
       try {

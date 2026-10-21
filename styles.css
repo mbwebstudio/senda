@@ -121,6 +121,16 @@ h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1}
 .mk-start{width:30px;height:30px;background:var(--moss);color:#fff;font:800 12px var(--body)}
 .mk-trail{width:40px;height:40px;background:var(--forest);color:#fff}
 .mk-me{width:20px;height:20px;background:#1C7ED6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(28,126,214,.25)}
+/* Your position: blue dot plus a cone pointing where the phone faces (like Google Maps). */
+.yo{position:relative;width:64px;height:64px;display:grid;place-items:center}
+.yo .mk-me{position:relative;z-index:1}
+.yo-cono{position:absolute;inset:0;transform:rotate(var(--rumbo,0deg));transition:transform .15s linear;display:none}
+.yo.con-rumbo .yo-cono{display:block}
+.yo-cono::before{content:"";position:absolute;left:50%;top:0;width:46px;height:33px;transform:translateX(-50%);background:linear-gradient(to top,rgba(28,126,214,.7),rgba(28,126,214,.12));clip-path:polygon(50% 100%,0 0,100% 0)}
+.brujula{position:fixed;z-index:450;right:10px;top:calc(140px + var(--safe-top));width:44px;height:44px;border:0;border-radius:50%;background:var(--paper);box-shadow:0 6px 18px -8px rgba(0,0,0,.45);padding:4px;display:grid;place-items:center}
+.brujula svg{width:36px;height:36px}
+#brujula-aguja{transform-origin:20px 20px;transition:transform .15s linear}
+@media(min-width:900px){.brujula{top:calc(150px + var(--safe-top))}}
 .leaflet-popup-content{font-family:var(--body);margin:12px 14px}
 .pop h4{margin:0 0 4px;font-family:var(--display);font-size:1.05rem}
 .pop small{color:var(--muted)}

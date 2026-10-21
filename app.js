@@ -379,7 +379,11 @@ async function descargar(r) {
 // ─── Walking mode: GPS (or simulation) + hazard alerts ───────────────────────
 function moverYo(p, { centrar = true } = {}) {
   state.yo = p;
-  if (!marcadorYo) marcadorYo = L.marker(p, { icon: icono('mk-me', '', 20), zIndexOffset: 1000, interactive: false }).addTo(map);
+  if (!marcadorYo) {
+    const icon = L.divIcon({ className: '', html: '<div class="yo"><div class="yo-cono"></div><div class="mk mk-me"></div></div>', iconSize: [64, 64], iconAnchor: [32, 32] });
+    marcadorYo = L.marker(p, { icon, zIndexOffset: 1000, interactive: false }).addTo(map);
+    if (rumbo != null) pintarRumbo();
+  }
   else marcadorYo.setLatLng(p);
   if (!state.seleccionado && (!yoDibujado || dist(yoDibujado, p) > 300)) dibujarReportes();
   if (state.navegando && state.seleccionado) {
@@ -642,6 +646,26 @@ $('#btn-capa').onclick = () => {
   capas[capaActual].addTo(map);
   toast(capaActual === 'relieve' ? 'Mapa con relieve' : 'Vista satelital');
 };
+// Which way you face: a cone on your dot and the compass needle. The map stays north-up.
+let rumbo = null, pararBrujula = null, pintando = false;
+function pintarRumbo() {
+  pintando = false;
+  const el = marcadorYo && marcadorYo.getElement();
+  if (el) { const yo = el.querySelector('.yo'); yo.classList.add('con-rumbo'); yo.style.setProperty('--rumbo', rumbo + 'deg'); }
+  $('#brujula-aguja').style.transform = `rotate(${-rumbo}deg)`;
+}
+function activarBrujula() {
+  if (pararBrujula) return;
+  pararBrujula = Nativo.brujula((h) => { rumbo = Math.round(h); if (!pintando) { pintando = true; requestAnimationFrame(pintarRumbo); } });
+}
+$('#btn-brujula').onclick = () => {
+  Nativo.pedirBrujula().then((ok) => {
+    if (!ok) { toast('Tu teléfono no dio permiso para la brújula.'); return; }
+    activarBrujula();
+    setTimeout(() => toast(rumbo == null ? 'Este dispositivo no tiene brújula.' : 'La punta roja marca el norte. El cono azul, hacia dónde mirás.'), 600);
+  });
+};
+
 // Your position: the button flies there; after that (or at start, if permission was already
 // given) the blue dot keeps following you while the app is open.
 let pararPunto = null;
@@ -662,11 +686,15 @@ function sinUbicacion(e) {
   } else toast('No encontramos tu ubicación. Probá al aire libre o con el GPS activado.');
 }
 $('#btn-ubicacion').onclick = async () => {
+  Nativo.pedirBrujula().then((ok) => ok && activarBrujula()); // iPhone asks only from a tap
   toast('Buscando tu ubicación…');
   try { const p = await Nativo.posicion(); moverYo(p, { centrar: false }); map.flyTo(p, 15); seguirPunto(); }
   catch (e) { sinUbicacion(e); }
 };
 Nativo.permisoUbicacion().then((s) => { if (s === 'granted') seguirPunto(); });
+// Listen from the start: Android sends readings right away; iPhone starts after the
+// permission asked on the first tap on the location or compass button.
+activarBrujula();
 // Bottom sheet: drag it with the finger (from the handle, or from the content when it is
 // scrolled to the top) and it snaps to the nearest height; a tap on the handle cycles.
 const PASOS_SHEET = ['18vh', '38vh', '52vh', '85vh'];
