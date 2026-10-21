@@ -3,7 +3,8 @@
   --ink:#1C2A22; --muted:#5E6B62; --line:#E2DCCD;
   --signal:#E8590C; --danger:#C92A2A; --ok:#2F9E44;
   --display:"Bricolage Grotesque",system-ui,sans-serif; --body:Manrope,system-ui,sans-serif;
-  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+  /* Capacitor 8 on Android injects --safe-area-inset-*; iPhone and browsers use env(). */
+  --safe-top:var(--safe-area-inset-top,env(safe-area-inset-top,0px)); --safe-bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px));
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}

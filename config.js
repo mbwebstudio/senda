@@ -2,7 +2,7 @@
    Con los campos vacíos la app funciona igual, pero los avisos, cuentas, fotos y el
    seguimiento en vivo quedan solo en este dispositivo. */
 window.SENDA_CONFIG = {
-  version: '0.3.1',
+  version: '0.3.2',
 
   // Supabase (Project Settings → API). La "anon key" es pública por diseño: la seguridad
   // la dan las reglas (RLS) de supabase/schema.sql.
@@ -13,6 +13,10 @@ window.SENDA_CONFIG = {
   // descargar para usar sin señal. Sin clave se usan los servidores gratuitos de
   // OpenStreetMap, que no permiten descargas masivas.
   maptilerKey: '',
+
+  // Ingreso con Google o Apple: poner true recién cuando cada uno esté activado en
+  // Supabase (Authentication → Sign In / Providers). Mientras, se entra con correo.
+  ingreso: { google: false, apple: false },
 
   // Anuncios de AdMob (solo en la app de las tiendas, nunca en la web). Ahora tienen los
   // códigos de prueba de Google: muestran anuncios de ejemplo y no pagan. Cuando exista la

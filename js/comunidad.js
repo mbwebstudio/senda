@@ -5,6 +5,8 @@
 const Comunidad = (() => {
   const MEDALLAS = [[0, '🥾', 'Caminante'], [20, '🧭', 'Baqueano'], [60, '🌿', 'Guardasenda'], [150, '⛰️', 'Guía de la sierra']];
   const medalla = (p) => MEDALLAS.filter(([min]) => p >= min).pop();
+  // Google/Apple buttons only once each provider is set up in Supabase (config.js).
+  const ingreso = (window.SENDA_CONFIG || {}).ingreso || {};
 
   // ─── Account ────────────────────────────────────────────────────────────────
   async function cuentaReal() {
@@ -34,8 +36,8 @@ const Comunidad = (() => {
       <label class="field"><span>Tu nombre</span><input id="cta-nombre" maxlength="40" value="${esc(perfil.nombre || '')}"></label>
       ${real ? `<p class="lead">Entraste como <b>${esc(u.email || 'usuario')}</b>.</p>` : `
         <p class="lead">Ahora usás Senda sin cuenta. Creá una para guardar tus puntos y subir fotos, comentarios o recorridos.</p>
-        <div class="actions"><button class="btn btn-ghost" id="cta-google">Continuar con Google</button>${Nativo.plataforma === 'ios' ? '<button class="btn btn-ghost" id="cta-apple">Continuar con Apple</button>' : ''}</div>
-        <label class="field"><span>O con tu correo</span><input id="cta-mail" type="email" placeholder="tu@correo.com" autocomplete="email"></label>`}
+        ${ingreso.google || ingreso.apple ? `<div class="actions">${ingreso.google ? '<button class="btn btn-ghost" id="cta-google">Continuar con Google</button>' : ''}${ingreso.apple && Nativo.plataforma === 'ios' ? '<button class="btn btn-ghost" id="cta-apple">Continuar con Apple</button>' : ''}</div>` : ''}
+        <label class="field"><span>${ingreso.google || ingreso.apple ? "O con tu correo" : "Con tu correo"}</span><input id="cta-mail" type="email" placeholder="tu@correo.com" autocomplete="email"></label>`}
       <div class="modal-actions">${real ? '<button class="btn btn-ghost" id="cta-salir">Cerrar sesión</button>' : '<button class="btn btn-ghost" id="cta-mail-ok">Mandarme el link</button>'}<button class="btn btn-main" id="cta-ok">Guardar</button></div>
       ${u ? '<p class="fine"><button class="link-peligro" id="cta-borrar">Borrar mi cuenta y mis datos</button></p>' : ''}`);
     if ($('#cta-borrar')) $('#cta-borrar').onclick = () => confirmarBorrado(u);
