@@ -382,7 +382,7 @@ function moverYo(p, { centrar = true } = {}) {
   if (!marcadorYo) {
     const icon = L.divIcon({ className: '', html: '<div class="yo"><div class="yo-cono"></div><div class="mk mk-me"></div></div>', iconSize: [64, 64], iconAnchor: [32, 32] });
     marcadorYo = L.marker(p, { icon, zIndexOffset: 1000, interactive: false }).addTo(map);
-    if (rumbo != null) pintarRumbo();
+    if (rumbo != null && !pintando) { pintando = true; requestAnimationFrame(pintarRumbo); }
   }
   else marcadorYo.setLatLng(p);
   if (!state.seleccionado && (!yoDibujado || dist(yoDibujado, p) > 300)) dibujarReportes();
@@ -647,16 +647,28 @@ $('#btn-capa').onclick = () => {
   toast(capaActual === 'relieve' ? 'Mapa con relieve' : 'Vista satelital');
 };
 // Which way you face: a cone on your dot and the compass needle. The map stays north-up.
+// The drawn angle is "unwrapped" (it can go past 360 or below 0) so that crossing north
+// turns 2° instead of spinning 358° the other way, and it eases toward the sensor
+// reading every frame so the cone and needle move smoothly instead of jumping.
 let rumbo = null, pararBrujula = null, pintando = false;
+let objetivo = null, dibujado = null;
 function pintarRumbo() {
-  pintando = false;
+  const paso = objetivo - dibujado;
+  dibujado = Math.abs(paso) < 0.3 ? objetivo : dibujado + paso * 0.25;
   const el = marcadorYo && marcadorYo.getElement();
-  if (el) { const yo = el.querySelector('.yo'); yo.classList.add('con-rumbo'); yo.style.setProperty('--rumbo', rumbo + 'deg'); }
-  $('#brujula-aguja').style.transform = `rotate(${-rumbo}deg)`;
+  if (el) { const yo = el.querySelector('.yo'); yo.classList.add('con-rumbo'); yo.style.setProperty('--rumbo', dibujado + 'deg'); }
+  $('#brujula-aguja').style.transform = `rotate(${-dibujado}deg)`;
+  pintando = dibujado !== objetivo;
+  if (pintando) requestAnimationFrame(pintarRumbo);
 }
 function activarBrujula() {
   if (pararBrujula) return;
-  pararBrujula = Nativo.brujula((h) => { rumbo = Math.round(h); if (!pintando) { pintando = true; requestAnimationFrame(pintarRumbo); } });
+  pararBrujula = Nativo.brujula((h) => {
+    rumbo = Math.round(h);
+    if (objetivo == null) objetivo = dibujado = h;
+    else objetivo += ((h - objetivo) % 360 + 540) % 360 - 180; // shortest turn, -180..180
+    if (!pintando) { pintando = true; requestAnimationFrame(pintarRumbo); }
+  });
 }
 $('#btn-brujula').onclick = () => {
   Nativo.pedirBrujula().then((ok) => {
