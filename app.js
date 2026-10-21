@@ -292,11 +292,11 @@ function render() {
       ${state.navegando
         ? `<button class="btn btn-stop" id="terminar">Terminar recorrido</button>`
         : `<button class="btn btn-main" id="empezar">Empezar recorrido</button>`}
-      <a class="btn btn-ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${r.inicio.coord.join(',')}">Cómo llegar al inicio</a>
+      <button class="btn btn-ghost" id="como-llegar">Cómo llegar</button>
       ${!state.navegando ? `<button class="btn btn-ghost" id="descargar">${descargados.has(r.id) ? '✓ Disponible sin señal' : 'Descargar para usar sin señal'}</button>` : ''}
       ${!state.navegando ? `<button class="btn btn-ghost" id="simular" title="Para probar la app sin salir de casa">Simular caminata</button>` : ''}
-      ${r.web ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${r.web}">Web del lugar</a>` : ''}
     </div>
+    ${redesHtml(r)}
     <div id="perfil-cont">${perfilSvg(r, state.navegando ? state.idx : null)}</div>
     <h3 class="sec-title">Clima en la zona</h3>
     <div id="clima"><p class="empty">Cargando pronóstico…</p></div>
@@ -320,9 +320,69 @@ function render() {
   if ($('#simular')) $('#simular').onclick = () => empezar(true);
   if ($('#terminar')) $('#terminar').onclick = () => terminar(true);
   if ($('#descargar')) $('#descargar').onclick = () => gestionarDescarga(r);
+  $('#como-llegar').onclick = () => comoLlegar(r);
   $('#ver-comunidad').onclick = () => { $('#comunidad').innerHTML = '<p class="empty">Cargando…</p>'; Comunidad.cargarSeccion(r, $('#comunidad')); };
   body.querySelectorAll('img[data-src]').forEach(async (img) => { img.src = await Mapas.foto(img.dataset.src); });
   Clima.de(r).then((c) => { if (state.seleccionado === r && $('#clima')) $('#clima').innerHTML = Clima.html(c); });
+}
+
+// ─── Getting to the trailhead and the place's own links ───────────────────────
+const ICONO_RED = {
+  web: '<path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 0c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9m0-18C9.5 5.6 8.3 8.6 8.3 12s1.2 6.4 3.7 9M3.5 9h17M3.5 15h17" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  instagram: '<rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/>',
+  facebook: '<path d="M13.5 21v-7.5H16l.4-3H13.5V8.7c0-.9.3-1.5 1.5-1.5h1.6V4.5c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.2H8v3h2.5V21" fill="currentColor"/>',
+  whatsapp: '<path d="M4 20l1.2-4.3A8 8 0 1 1 8.4 19L4 20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 8.6c.2-.5.5-.5.8-.5h.5c.2 0 .4.1.5.4l.7 1.6c.1.3 0 .5-.2.7l-.5.5c.5 1 1.3 1.8 2.3 2.3l.5-.5c.2-.2.4-.3.7-.2l1.6.7c.3.1.4.3.4.5v.5c0 .3-.1.6-.5.8-.7.4-1.6.5-2.6.1-2-.8-3.6-2.4-4.4-4.4-.3-1-.2-1.9.1-2.5Z" fill="currentColor"/>',
+};
+function redesHtml(r) {
+  const x = r.redes || {};
+  const links = [
+    r.web && ['web', 'Web', r.web],
+    x.instagram && ['instagram', 'Instagram', `https://www.instagram.com/${x.instagram}/`],
+    x.facebook && ['facebook', 'Facebook', `https://www.facebook.com/${x.facebook}/`],
+    x.whatsapp && ['whatsapp', 'WhatsApp', `https://wa.me/${x.whatsapp}?text=${encodeURIComponent('Hola, vi ' + r.nombre + ' en Senda y quería consultar.')}`],
+  ].filter(Boolean);
+  if (!links.length) return '';
+  return `<div class="redes" aria-label="Contacto del lugar">${links.map(([k, t, u]) => `<a class="red-btn" target="_blank" rel="noopener" href="${esc(u)}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONO_RED[k]}</svg>${t}</a>`).join('')}</div>`;
+}
+
+/* Three ways to get to the start: Google Maps or Waze to drive there (Apple Maps too on
+   iPhone), or Senda's own map, with a line from where you are. */
+function comoLlegar(r) {
+  const [la, lo] = r.inicio.coord;
+  const ios = Nativo.plataforma === 'ios' || /iPhone|iPad/.test(navigator.userAgent);
+  abrirModal(`<h2 id="modal-title">Cómo llegar</h2>
+    <p class="lead">Al inicio: <b>${esc(r.inicio.nombre)}</b>.</p>
+    <div class="menu">
+      <a target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}"><span>🚗</span>Google Maps</a>
+      <a target="_blank" rel="noopener" href="https://waze.com/ul?ll=${la},${lo}&navigate=yes"><span>🧭</span>Waze</a>
+      ${ios ? `<a target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${la},${lo}"><span>🗺️</span>Mapas de Apple</a>` : ''}
+      <button id="cl-senda"><span>📍</span>Ver el inicio en el mapa de Senda</button>
+    </div>
+    <p class="fine">Google Maps, Waze y Mapas te llevan en auto hasta el inicio. Desde ahí, el sendero lo seguís en Senda.</p>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cl-cerrar">Cerrar</button></div>`);
+  $('#cl-cerrar').onclick = cerrarModal;
+  $('#cl-senda').onclick = () => { cerrarModal(); verInicio(r); };
+}
+
+let capaInicio = null;
+async function verInicio(r) {
+  if (capaInicio) map.removeLayer(capaInicio);
+  capaInicio = L.layerGroup().addTo(map);
+  const ini = r.inicio.coord;
+  L.marker(ini, { icon: icono('mk-inicio', '🚩', 44), zIndexOffset: 900 }).bindTooltip('Inicio del recorrido', { permanent: true, direction: 'top', offset: [0, -20] }).addTo(capaInicio);
+  setSheet('24vh');
+  let p = state.yo;
+  if (!p) { try { p = await Nativo.posicion(); moverYo(p, { centrar: false }); } catch { /* no location */ } }
+  if (p) {
+    const d = dist(p, ini);
+    L.polyline([p, ini], { color: '#E8590C', weight: 4, dashArray: '8 8' }).addTo(capaInicio);
+    map.fitBounds(L.latLngBounds([p, ini]), { padding: [60, 60], maxZoom: 16 });
+    toast(d < 1000 ? `Estás a ${Math.round(d)} m del inicio` : `Estás a ${fmtKm(d)} del inicio, en línea recta`);
+  } else {
+    map.flyTo(ini, 15);
+    toast('Este es el punto de partida');
+  }
+  setTimeout(() => { if (capaInicio) { map.removeLayer(capaInicio); capaInicio = null; } }, 60000);
 }
 
 function progresoHtml(r) {
