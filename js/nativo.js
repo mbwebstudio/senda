@@ -50,10 +50,23 @@ const Nativo = (() => {
         const pos = await P.Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000 });
         return [pos.coords.latitude, pos.coords.longitude];
       }
-      return new Promise((ok, mal) => {
-        if (!navigator.geolocation) return mal(new Error('sin gps'));
-        navigator.geolocation.getCurrentPosition((p) => ok([p.coords.latitude, p.coords.longitude]), mal, { enableHighAccuracy: true, timeout: 12000 });
-      });
+      // Indoors the precise fix can take long: fall back to a quick approximate one.
+      const pedir = (opts) => new Promise((ok, mal) => navigator.geolocation.getCurrentPosition((p) => ok([p.coords.latitude, p.coords.longitude]), mal, opts));
+      if (!navigator.geolocation) throw Object.assign(new Error('sin gps'), { code: 2 });
+      try { return await pedir({ enableHighAccuracy: true, timeout: 10000 }); }
+      catch (e) {
+        if (e && e.code === 1) throw e; // permission denied: retrying will not help
+        return pedir({ enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
+      }
+    },
+
+    // 'granted' | 'denied' | 'prompt' | 'unknown', without asking the user.
+    async permisoUbicacion() {
+      try {
+        if (esNativo && P.Geolocation) return (await P.Geolocation.checkPermissions()).location;
+        if (navigator.permissions) return (await navigator.permissions.query({ name: 'geolocation' })).state;
+      } catch { /* not supported */ }
+      return 'unknown';
     },
 
     vibrar(patron = [200, 100, 200]) {

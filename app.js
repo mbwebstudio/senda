@@ -139,9 +139,22 @@ function dibujarMarcadoresRecorridos() {
   }
 }
 
+/* Only the reports that matter here: along the open trail, or around you when no trail
+   is open. Your own reports always show, so you can see what you posted. */
+const RADIO_AVISOS_M = 5000;
+function avisosVisibles() {
+  const todos = Reportes.vigentes();
+  const cerca = state.seleccionado
+    ? (x) => distARuta(x.coord, state.seleccionado.ruta) < CERCA_RUTA_METROS
+    : state.yo ? (x) => dist(state.yo, x.coord) < RADIO_AVISOS_M : () => false;
+  return todos.filter((x) => x.mio || cerca(x));
+}
+
+let yoDibujado = null; // where you were when the reports were last drawn
 function dibujarReportes() {
   capaReportes.clearLayers();
-  for (const r of Reportes.vigentes()) {
+  yoDibujado = state.yo;
+  for (const r of avisosVisibles()) {
     const t = TIPO[r.tipo];
     const votado = Reportes.yaVote(r.id);
     const html = `<div class="pop"><h4>${t.em} ${t.label}</h4><small>${hace(r.creado)}${r.demo ? ' · ejemplo' : ''}${r.pendiente ? ' · esperando señal para publicarse' : ''}${r.si ? ` · ${r.si} lo confirmaron` : ''}</small>
@@ -311,6 +324,7 @@ function seleccionar(id) {
   state.seleccionado = r;
   capaRecorridos.clearLayers();
   dibujarDetalle(r);
+  dibujarReportes();
   setSheet(window.innerWidth < 900 ? '52vh' : '38vh');
   const bounds = L.latLngBounds(r.ruta.concat(r.paradas.map((p) => p.coord)));
   setTimeout(() => map.fitBounds(bounds, { maxZoom: 16, paddingTopLeft: window.innerWidth >= 900 ? [430, 80] : [30, 80], paddingBottomRight: [30, window.innerWidth >= 900 ? 30 : window.innerHeight * 0.52 + 20] }), 50);
@@ -322,6 +336,7 @@ function deseleccionar() {
   state.seleccionado = null;
   capaDetalle.clearLayers();
   dibujarMarcadoresRecorridos();
+  dibujarReportes();
   setSheet('38vh');
   map.flyTo([-34.6, -55.1], 9, { duration: 0.6 });
   render();
@@ -366,6 +381,7 @@ function moverYo(p, { centrar = true } = {}) {
   state.yo = p;
   if (!marcadorYo) marcadorYo = L.marker(p, { icon: icono('mk-me', '', 20), zIndexOffset: 1000, interactive: false }).addTo(map);
   else marcadorYo.setLatLng(p);
+  if (!state.seleccionado && (!yoDibujado || dist(yoDibujado, p) > 300)) dibujarReportes();
   if (state.navegando && state.seleccionado) {
     const r = state.seleccionado;
     const { idx, d } = masCercano(p, r.ruta);
@@ -626,10 +642,31 @@ $('#btn-capa').onclick = () => {
   capas[capaActual].addTo(map);
   toast(capaActual === 'relieve' ? 'Mapa con relieve' : 'Vista satelital');
 };
+// Your position: the button flies there; after that (or at start, if permission was already
+// given) the blue dot keeps following you while the app is open.
+let pararPunto = null;
+async function seguirPunto() {
+  if (pararPunto) return;
+  pararPunto = await Nativo.seguir((pos) => { if (!state.navegando) moverYo([pos.lat, pos.lon], { centrar: false }); }, () => {});
+}
+function sinUbicacion(e) {
+  if (e && (e.code === 1 || /denied|permis/i.test(e.message || ''))) {
+    const ios = /iPhone|iPad/.test(navigator.userAgent);
+    abrirModal(`<h2 id="modal-title">Activá la ubicación</h2>
+      <p class="lead">Senda no tiene permiso para usar tu ubicación.</p>
+      ${ios && !Nativo.esNativo ? `<ol class="tips"><li>Abrí <b>Ajustes → Privacidad y seguridad → Localización</b> y fijate que esté activada.</li><li>Ahí mismo entrá a <b>Sitios web de Safari</b> y elegí <b>"Al usar la app"</b> y <b>Ubicación exacta</b>.</li><li>Volvé a Senda y tocá otra vez el botón de ubicación. Si te pregunta, tocá <b>Permitir</b>.</li></ol>`
+        : ios ? '<p>Abrí <b>Ajustes → Senda → Ubicación</b> y elegí <b>"Al usar la app"</b> con <b>Ubicación exacta</b>.</p>'
+        : '<p>Abrí los ajustes del navegador o del teléfono, buscá los permisos de ubicación y permitíselos a Senda.</p>'}
+      <div class="modal-actions"><button class="btn btn-main" id="ub-ok">Entendido</button></div>`);
+    $('#ub-ok').onclick = cerrarModal;
+  } else toast('No encontramos tu ubicación. Probá al aire libre o con el GPS activado.');
+}
 $('#btn-ubicacion').onclick = async () => {
-  try { const p = await Nativo.posicion(); moverYo(p, { centrar: false }); map.flyTo(p, 15); }
-  catch { toast('No pudimos acceder a tu ubicación.'); }
+  toast('Buscando tu ubicación…');
+  try { const p = await Nativo.posicion(); moverYo(p, { centrar: false }); map.flyTo(p, 15); seguirPunto(); }
+  catch (e) { sinUbicacion(e); }
 };
+Nativo.permisoUbicacion().then((s) => { if (s === 'granted') seguirPunto(); });
 // Bottom sheet: drag it with the finger (from the handle, or from the content when it is
 // scrolled to the top) and it snaps to the nearest height; a tap on the handle cycles.
 const PASOS_SHEET = ['18vh', '38vh', '52vh', '85vh'];

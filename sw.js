@@ -1,7 +1,7 @@
 /* Service worker for the web version: keeps the app itself (HTML, code, data, fonts)
    so it opens without signal. Map tiles are handled by js/mapas.js through IndexedDB.
    Bump VERSION whenever app files change. */
-const VERSION = 'senda-0.3.2';
+const VERSION = 'senda-0.4.0';
 const ARCHIVOS = [
   './', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'data/recorridos.js', 'data/destacados.js',

@@ -198,3 +198,4 @@ h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1}
 
 @media(max-width:899px){.sheet-alta .fab{display:none}}
 .link-peligro{border:0;background:none;padding:6px 0;color:var(--danger);font:inherit;text-decoration:underline;cursor:pointer}
+.ayuda{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px}.ayuda summary{cursor:pointer;font-weight:700;color:var(--forest)}.ayuda p,.ayuda ul{margin:8px 0}

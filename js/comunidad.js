@@ -32,10 +32,17 @@ const Comunidad = (() => {
     const sig = MEDALLAS.find(([min]) => min > puntos);
     abrirModal(`<h2 id="modal-title">Tu cuenta</h2>
       <div class="medalla"><span class="medalla-em">${em}</span><div><b>${titulo}</b><small>${puntos} puntos${sig ? ` · te faltan ${sig[0] - puntos} para ${sig[2]}` : ''}</small></div></div>
-      <p class="fine">Sumás puntos cuando publicás avisos, cuando otros los confirman, con fotos aprobadas, comentarios y recorridos propuestos.</p>
+      <details class="ayuda"><summary>¿Para qué sirven los puntos?</summary>
+        <p>Muestran cuánto ayudaste a otros caminantes. No se canjean por nada: son un reconocimiento, y con más puntos subís de medalla (🥾 Caminante → 🧭 Baqueano → 🌿 Guardasenda → ⛰️ Guía de la sierra).</p>
+        <ul class="tips"><li>Publicar un aviso: 2 puntos</li><li>Cada persona que confirma que tu aviso sigue ahí: 1</li><li>Comentario: 1 · Foto aprobada: 5</li><li>Recorrido grabado que agregamos a Senda: 25</li></ul>
+      </details>
       <label class="field"><span>Tu nombre</span><input id="cta-nombre" maxlength="40" value="${esc(perfil.nombre || '')}"></label>
-      ${real ? `<p class="lead">Entraste como <b>${esc(u.email || 'usuario')}</b>.</p>` : `
-        <p class="lead">Ahora usás Senda sin cuenta. Creá una para guardar tus puntos y subir fotos, comentarios o recorridos.</p>
+      ${real ? `<p class="lead">Entraste como <b>${esc(u.email || 'usuario')}</b>. Tus puntos y lo que publicaste quedan guardados aunque cambies de teléfono.</p>` : `
+        <p class="lead">Ahora usás Senda sin cuenta, y para caminar, ver y publicar avisos no hace falta.</p>
+        <details class="ayuda"><summary>¿Para qué crear una cuenta?</summary>
+          <ul class="tips"><li><b>Subir fotos y comentarios</b> de los recorridos, y <b>proponer recorridos</b> que grabaste. Para evitar spam, eso pide cuenta.</li><li><b>No perder tus puntos</b> si cambiás o borrás la app: quedan atados a tu correo.</li></ul>
+          <p class="fine">Es gratis y no tiene contraseña: te mandamos un link al correo, lo abrís y listo.</p>
+        </details>
         ${ingreso.google || ingreso.apple ? `<div class="actions">${ingreso.google ? '<button class="btn btn-ghost" id="cta-google">Continuar con Google</button>' : ''}${ingreso.apple && Nativo.plataforma === 'ios' ? '<button class="btn btn-ghost" id="cta-apple">Continuar con Apple</button>' : ''}</div>` : ''}
         <label class="field"><span>${ingreso.google || ingreso.apple ? "O con tu correo" : "Con tu correo"}</span><input id="cta-mail" type="email" placeholder="tu@correo.com" autocomplete="email"></label>`}
       <div class="modal-actions">${real ? '<button class="btn btn-ghost" id="cta-salir">Cerrar sesión</button>' : '<button class="btn btn-ghost" id="cta-mail-ok">Mandarme el link</button>'}<button class="btn btn-main" id="cta-ok">Guardar</button></div>
